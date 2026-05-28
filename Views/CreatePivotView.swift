@@ -17,93 +17,102 @@ struct CreatePivotView: View {
     viewModel.groupedItems(for: .options)
   }
 
+  private var isCreateEnabled: Bool {
+    viewModel.canCreatePivot
+  }
+
   var body: some View {
     NavigationStack {
-      List {
-        Section {
-          Text("Select at least one Current item and one Option item.")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-        }
+      ZStack {
+        Color(uiColor: .systemGroupedBackground)
+          .ignoresSafeArea()
 
-        if currentGroups.isEmpty && optionGroups.isEmpty {
+        List {
           Section {
-            ContentUnavailableView(
-              "No Items Yet",
-              systemImage: "arrow.triangle.branch",
-              description: Text("Add Current and Option items in Inputs before creating a pivot.")
-            )
+            Text("Select at least one Current item and one Option item.")
+              .font(.subheadline)
+              .foregroundStyle(.secondary)
           }
-        } else {
-          if !currentGroups.isEmpty {
-            Section("Current") {
-              ForEach(currentGroups) { group in
-                DisclosureGroup(
-                  isExpanded: currentBinding(for: group.category.id)
-                ) {
-                  ForEach(group.items) { item in
-                    SelectableItemRow(
-                      title: item.title,
-                      isSelected: viewModel.isSelected(item)
-                    ) {
-                      withAnimation(.snappy) {
-                        viewModel.toggleSelection(for: item)
-                        errorMessage = nil
+
+          if currentGroups.isEmpty && optionGroups.isEmpty {
+            Section {
+              ContentUnavailableView(
+                "No Items Yet",
+                systemImage: "arrow.triangle.branch",
+                description: Text("Add Current and Option items in Inputs before creating a pivot.")
+              )
+            }
+          } else {
+            if !currentGroups.isEmpty {
+              Section("Current") {
+                ForEach(currentGroups) { group in
+                  DisclosureGroup(
+                    isExpanded: currentBinding(for: group.category.id)
+                  ) {
+                    ForEach(group.items) { item in
+                      SelectableItemRow(
+                        title: item.title,
+                        isSelected: viewModel.isSelected(item)
+                      ) {
+                        withAnimation(.snappy) {
+                          viewModel.toggleSelection(for: item)
+                          errorMessage = nil
+                        }
                       }
                     }
-                  }
-                } label: {
-                  HStack {
-                    CategoryListRow(
-                      category: group.category,
-                      count: group.items.count
-                    )
+                  } label: {
+                    HStack {
+                      CategoryListRow(
+                        category: group.category,
+                        count: group.items.count
+                      )
 
-                    Spacer()
+                      Spacer()
 
-                    let selectedCount = viewModel.selectedCount(for: group.category, groupType: .current)
-                    if selectedCount > 0 {
-                      Text("\(selectedCount) selected")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                      let selectedCount = viewModel.selectedCount(for: group.category, groupType: .current)
+                      if selectedCount > 0 {
+                        Text("\(selectedCount) selected")
+                          .font(.caption)
+                          .foregroundStyle(.secondary)
+                      }
                     }
                   }
                 }
               }
             }
-          }
 
-          if !optionGroups.isEmpty {
-            Section("Options") {
-              ForEach(optionGroups) { group in
-                DisclosureGroup(
-                  isExpanded: optionBinding(for: group.category.id)
-                ) {
-                  ForEach(group.items) { item in
-                    SelectableItemRow(
-                      title: item.title,
-                      isSelected: viewModel.isSelected(item)
-                    ) {
-                      withAnimation(.snappy) {
-                        viewModel.toggleSelection(for: item)
-                        errorMessage = nil
+            if !optionGroups.isEmpty {
+              Section("Options") {
+                ForEach(optionGroups) { group in
+                  DisclosureGroup(
+                    isExpanded: optionBinding(for: group.category.id)
+                  ) {
+                    ForEach(group.items) { item in
+                      SelectableItemRow(
+                        title: item.title,
+                        isSelected: viewModel.isSelected(item)
+                      ) {
+                        withAnimation(.snappy) {
+                          viewModel.toggleSelection(for: item)
+                          errorMessage = nil
+                        }
                       }
                     }
-                  }
-                } label: {
-                  HStack {
-                    CategoryListRow(
-                      category: group.category,
-                      count: group.items.count
-                    )
+                  } label: {
+                    HStack {
+                      CategoryListRow(
+                        category: group.category,
+                        count: group.items.count
+                      )
 
-                    Spacer()
+                      Spacer()
 
-                    let selectedCount = viewModel.selectedCount(for: group.category, groupType: .options)
-                    if selectedCount > 0 {
-                      Text("\(selectedCount) selected")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                      let selectedCount = viewModel.selectedCount(for: group.category, groupType: .options)
+                      if selectedCount > 0 {
+                        Text("\(selectedCount) selected")
+                          .font(.caption)
+                          .foregroundStyle(.secondary)
+                      }
                     }
                   }
                 }
@@ -111,15 +120,30 @@ struct CreatePivotView: View {
             }
           }
         }
+        .scrollContentBackground(.hidden)
       }
       .listStyle(.insetGrouped)
       .navigationTitle("Create Pivot")
       .safeAreaInset(edge: .bottom) {
         VStack(spacing: 8) {
-          Button("Create Pivot", action: createPivot)
-            .buttonStyle(.borderedProminent)
-            .frame(maxWidth: .infinity)
-            .disabled(!viewModel.canCreatePivot)
+          Button(action: createPivot) {
+            Text("Create Pivot")
+              .font(.headline)
+              .foregroundStyle(isCreateEnabled ? .white : .secondary)
+              .frame(maxWidth: .infinity, minHeight: 50)
+              .background(
+                isCreateEnabled ? Color.accentColor : Color(uiColor: .secondarySystemFill),
+                in: RoundedRectangle(cornerRadius: 14)
+              )
+              .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                  .stroke(
+                    isCreateEnabled ? Color.accentColor.opacity(0.95) : Color.secondary.opacity(0.25),
+                    lineWidth: 1
+                  )
+              }
+          }
+          .disabled(!isCreateEnabled)
 
           Text(errorMessage ?? helperText)
             .font(.footnote)
