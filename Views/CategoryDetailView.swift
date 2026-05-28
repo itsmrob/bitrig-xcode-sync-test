@@ -24,6 +24,7 @@ struct CategoryDetailView: View {
           isFocused: $isInputFocused,
           onAdd: addItem
         )
+        .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: errorMessage == nil ? 2 : 6, trailing: 20))
 
         if let errorMessage {
           Text(errorMessage)
@@ -76,6 +77,8 @@ struct CategoryDetailView: View {
       }
     }
     .listStyle(.insetGrouped)
+    .listSectionSpacing(.compact)
+    .contentMargins(.top, 0, for: .scrollContent)
     .navigationBarTitleDisplayMode(.inline)
     .searchable(text: $searchText, prompt: "Search items")
     .toolbar {

@@ -8,6 +8,7 @@ struct InlineAddItemField: View {
   var body: some View {
     HStack(spacing: 12) {
       TextField("Add new item…", text: $text)
+        .font(.body)
         .textFieldStyle(.plain)
         .focused(isFocused)
         .submitLabel(.done)
@@ -16,13 +17,17 @@ struct InlineAddItemField: View {
       Button(action: onAdd) {
         Image(systemName: "plus")
           .font(.headline.weight(.semibold))
-          .frame(width: 30, height: 30)
+          .frame(width: 34, height: 34)
           .background(Color.accentColor.opacity(0.14), in: Circle())
       }
       .accessibilityLabel("Add item")
     }
-    .padding(.horizontal, 14)
-    .padding(.vertical, 12)
-    .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+    .frame(minHeight: 54)
+    .padding(.horizontal, 16)
+    .padding(.vertical, 10)
+    .background(
+      Color(uiColor: .secondarySystemGroupedBackground),
+      in: RoundedRectangle(cornerRadius: 20)
+    )
   }
 }
