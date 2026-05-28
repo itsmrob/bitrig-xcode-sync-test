@@ -1,0 +1,70 @@
+{
+  "configs": {
+    "Debug": "debug",
+    "Release": "release"
+  },
+  "name": "BOM Lite Mobile",
+  "options": {
+    "groupSortPosition": "bottom",
+    "transitivelyLinkDependencies": false
+  },
+  "settings": {
+    "CODE_SIGN_IDENTITY": "-"
+  },
+  "targets": {
+    "BOM Lite Mobile": {
+      "deploymentTarget": "26.0",
+      "info": {
+        "path": "App\/Info.plist",
+        "properties": {
+          "CFBundleDisplayName": "BOM Lite Mobile",
+          "CFBundleShortVersionString": "1.0",
+          "CFBundleVersion": "1",
+          "ITSAppUsesNonExemptEncryption": false,
+          "UILaunchScreen": {},
+          "UISupportedInterfaceOrientations": [
+            "UIInterfaceOrientationPortrait",
+            "UIInterfaceOrientationPortraitUpsideDown",
+            "UIInterfaceOrientationLandscapeLeft",
+            "UIInterfaceOrientationLandscapeRight"
+          ]
+        }
+      },
+      "platform": "iOS",
+      "settings": {
+        "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
+        "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "AccentColor",
+        "CURRENT_PROJECT_VERSION": "1",
+        "MARKETING_VERSION": "1.0",
+        "PRODUCT_BUNDLE_IDENTIFIER": "app.bitrig.new.d600e892-496f-436e-96a4-04c525554edf",
+        "PRODUCT_NAME": "$(TARGET_NAME)",
+        "SWIFT_VERSION": "5.0",
+        "TARGETED_DEVICE_FAMILY": "1"
+      },
+      "sources": [
+        {
+          "path": "App"
+        },
+        {
+          "path": "Models"
+        },
+        {
+          "path": "ViewModels"
+        },
+        {
+          "path": "Views"
+        },
+        {
+          "path": "Components"
+        },
+        {
+          "path": "Utils"
+        },
+        {
+          "path": "Constants"
+        }
+      ],
+      "type": "application"
+    }
+  }
+}
