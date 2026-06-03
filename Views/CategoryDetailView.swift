@@ -36,7 +36,7 @@ struct CategoryDetailView: View {
       if categoryItems.isEmpty {
         Section {
           ContentUnavailableView(
-            searchText.isEmpty ? "No \(groupType.title) Items" : "No Matches",
+            searchText.isEmpty ? "No \(groupType.title) Items" : "No matches",
             systemImage: searchText.isEmpty ? "text.badge.plus" : "magnifyingglass",
             description: Text(
               searchText.isEmpty

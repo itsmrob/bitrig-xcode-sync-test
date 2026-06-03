@@ -17,7 +17,7 @@ struct PivotsView: View {
             systemImage: searchText.isEmpty ? "square.stack.3d.up" : "magnifyingglass",
             description: Text(
               searchText.isEmpty
-                ? "Create a pivot from your Current and Option items."
+                ? "Create a pivot from your Current items."
                 : "Try a different search term."
             )
           )

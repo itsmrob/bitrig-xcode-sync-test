@@ -29,7 +29,7 @@ struct CreatePivotView: View {
 
         List {
           Section {
-            Text("Select at least one Current item and one Option item.")
+            Text("Select at least one current item and one option item.")
               .font(.subheadline)
               .foregroundStyle(.secondary)
           }
