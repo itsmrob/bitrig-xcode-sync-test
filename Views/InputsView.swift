@@ -47,7 +47,7 @@ struct InputsView: View {
           .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
       }
-      .navigationTitle("Inputs")
+      .navigationTitle("Data Inputs")
     }
     .listStyle(.insetGrouped)
     .contentMargins(.top, 0, for: .scrollContent)
