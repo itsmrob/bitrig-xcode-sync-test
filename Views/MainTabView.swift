@@ -5,12 +5,12 @@ struct MainTabView: View {
     TabView {
       InputsView()
         .tabItem {
-          Label("Data Inputs", systemImage: "square.and.pencil")
+          Label("Data Inputs from xCode", systemImage: "square.and.pencil")
         }
 
       CreatePivotView()
         .tabItem {
-          Label("Create Pivot", systemImage: "arrow.triangle.branch")
+          Label("Create Pivot from xCode", systemImage: "arrow.triangle.branch")
         }
 
       PivotsView()
