@@ -5,7 +5,7 @@ struct MainTabView: View {
     TabView {
       InputsView()
         .tabItem {
-          Label("Inputs", systemImage: "square.and.pencil")
+          Label("Data Inputs", systemImage: "square.and.pencil")
         }
 
       CreatePivotView()
