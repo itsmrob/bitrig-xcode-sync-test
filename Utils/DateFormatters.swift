@@ -7,4 +7,10 @@ enum DateFormatters {
     .year()
     .hour()
     .minute()
+
+  static let aiPlaygroundTimestamp: Date.FormatStyle = .dateTime
+    .month(.abbreviated)
+    .day()
+    .hour()
+    .minute()
 }
