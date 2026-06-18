@@ -21,7 +21,7 @@ struct AIHistoryRow: View {
 
         Text(entry.responsePreview)
           .font(.subheadline)
-          .foregroundStyle(.secondary)
+          .foregroundStyle(entry.isError ? .red : .secondary)
           .lineLimit(3)
       }
     }

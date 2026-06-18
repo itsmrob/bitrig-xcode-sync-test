@@ -1,24 +1,6 @@
 import Foundation
 import Observation
 
-protocol AIPlaygroundGenerating {
-  func generateResponse(for prompt: String) async throws -> String
-}
-
-struct MockAIPlaygroundGenerator: AIPlaygroundGenerating {
-  func generateResponse(for prompt: String) async throws -> String {
-    try await Task.sleep(for: .seconds(1.1))
-
-    let shortPrompt = prompt.count > 70 ? "\(prompt.prefix(67))…" : prompt
-    return """
-    Placeholder response for:
-    \(shortPrompt)
-
-    This screen is ready for future AI integration. Replace the mock generator with your OpenAI client, then map the returned text into this response card and history list.
-    """
-  }
-}
-
 @MainActor
 @Observable
 final class AIPlaygroundViewModel {
@@ -26,11 +8,12 @@ final class AIPlaygroundViewModel {
   var latestEntry: AIPlaygroundHistoryEntry?
   var history: [AIPlaygroundHistoryEntry] = []
   var isGenerating = false
+  var errorMessage: String?
 
-  private let generator: any AIPlaygroundGenerating
+  private let service: AIService
 
-  init(generator: any AIPlaygroundGenerating = MockAIPlaygroundGenerator()) {
-    self.generator = generator
+  init(service: AIService = AIService()) {
+    self.service = service
   }
 
   var canGenerate: Bool {
@@ -42,33 +25,66 @@ final class AIPlaygroundViewModel {
     guard !submittedPrompt.isEmpty, !isGenerating else { return }
 
     isGenerating = true
+    errorMessage = nil
 
     Task {
       defer { isGenerating = false }
 
       do {
-        let response = try await generator.generateResponse(for: submittedPrompt)
+        // The view model coordinates the request lifecycle so the view only binds to state.
+        let response = try await service.generateResponse(for: submittedPrompt)
         let entry = AIPlaygroundHistoryEntry(
           id: UUID(),
           prompt: submittedPrompt,
           response: response,
-          createdAt: Date()
+          createdAt: Date(),
+          isError: false
         )
 
         latestEntry = entry
         history.insert(entry, at: 0)
       } catch {
-        latestEntry = AIPlaygroundHistoryEntry(
+        let message = formattedErrorMessage(from: error)
+        errorMessage = message
+
+        let entry = AIPlaygroundHistoryEntry(
           id: UUID(),
           prompt: submittedPrompt,
-          response: "Unable to generate a preview right now. Connect a live AI provider to handle errors and retries.",
-          createdAt: Date()
+          response: message,
+          createdAt: Date(),
+          isError: true
         )
+
+        latestEntry = entry
+        history.insert(entry, at: 0)
       }
     }
   }
 
   private var trimmedPrompt: String {
     prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  private func formattedErrorMessage(from error: Error) -> String {
+    if let serviceError = error as? AIServiceError {
+      return serviceError.errorDescription ?? "Something went wrong while contacting the AI service."
+    }
+
+    if let urlError = error as? URLError {
+      switch urlError.code {
+      case .notConnectedToInternet:
+        return "No network connection is available."
+      case .timedOut:
+        return "The request timed out. Try again."
+      case .cannotConnectToHost:
+        return "The app could not reach the backend server."
+      case .networkConnectionLost:
+        return "The network connection was lost during the request."
+      default:
+        return urlError.localizedDescription
+      }
+    }
+
+    return error.localizedDescription
   }
 }

@@ -24,7 +24,7 @@ struct AIResponseCard: View {
           ScrollView {
             Text(entry.response)
               .font(.body)
-              .foregroundStyle(.primary)
+              .foregroundStyle(entry.isError ? .red : .primary)
               .frame(maxWidth: .infinity, alignment: .leading)
           }
           .frame(minHeight: 180, maxHeight: 260)
