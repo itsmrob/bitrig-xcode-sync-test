@@ -18,26 +18,13 @@ struct ChatComposerBar: View {
           RoundedRectangle(cornerRadius: 28, style: .continuous)
             .stroke(Color(uiColor: .separator).opacity(0.08), lineWidth: 1)
 
-          TextEditor(text: $text)
+          TextField("Ask anything...", text: $text, axis: .vertical)
             .font(.body)
             .focused(isFocused)
-            .frame(minHeight: 22, maxHeight: 72)
+            .lineLimit(1 ... 4)
             .padding(.leading, 14)
             .padding(.trailing, 62)
-            .padding(.vertical, 8)
-            .scrollContentBackground(.hidden)
-            .background(.clear)
-
-          if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            Text("Ask anything...")
-              .font(.body)
-              .foregroundStyle(.tertiary)
-              .frame(maxWidth: .infinity, alignment: .leading)
-              .padding(.leading, 20)
-              .padding(.trailing, 64)
-              .padding(.vertical, 10)
-              .allowsHitTesting(false)
-          }
+            .padding(.vertical, 14)
 
           Button(action: onSend) {
             Group {
