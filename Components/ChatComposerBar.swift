@@ -7,55 +7,62 @@ struct ChatComposerBar: View {
   let onSend: () -> Void
 
   var body: some View {
-    HStack(alignment: .bottom, spacing: 12) {
-      ZStack(alignment: .topLeading) {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
-          .fill(Color(uiColor: .secondarySystemGroupedBackground))
+    VStack(spacing: 0) {
+      Divider()
+        .opacity(0.5)
 
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
-          .stroke(Color(uiColor: .separator).opacity(0.18), lineWidth: 1)
+      HStack(alignment: .bottom, spacing: 12) {
+        ZStack(alignment: .topLeading) {
+          RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .fill(Color(uiColor: .secondarySystemGroupedBackground))
 
-        TextEditor(text: $text)
-          .font(.body)
-          .frame(minHeight: 44, maxHeight: 108)
-          .padding(.horizontal, 10)
-          .padding(.vertical, 8)
-          .scrollContentBackground(.hidden)
-          .background(.clear)
+          RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .stroke(Color(uiColor: .separator).opacity(0.18), lineWidth: 1)
 
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-          Text("Ask anything...")
-            .foregroundStyle(.tertiary)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 20)
-            .allowsHitTesting(false)
-        }
-      }
+          TextEditor(text: $text)
+            .font(.body)
+            .frame(minHeight: 46, maxHeight: 108)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .scrollContentBackground(.hidden)
+            .background(.clear)
 
-      Button(action: onSend) {
-        Group {
-          if isSending {
-            ProgressView()
-              .tint(.white)
-          } else {
-            Image(systemName: "arrow.up")
-              .font(.headline.weight(.semibold))
+          if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Text("Ask anything...")
+              .foregroundStyle(.tertiary)
+              .padding(.horizontal, 16)
+              .padding(.vertical, 20)
+              .allowsHitTesting(false)
           }
         }
-        .frame(width: 48, height: 48)
-        .foregroundStyle(.white)
-        .background(
-          Circle()
-            .fill(canSend ? Color.accentColor : Color(uiColor: .systemGray3))
-        )
+
+        Button(action: onSend) {
+          Group {
+            if isSending {
+              ProgressView()
+                .tint(.white)
+            } else {
+              Image(systemName: "arrow.up")
+                .font(.headline.weight(.semibold))
+            }
+          }
+          .frame(width: 48, height: 48)
+          .foregroundStyle(.white)
+          .background(
+            Circle()
+              .fill(canSend ? Color.accentColor : Color(uiColor: .systemGray3))
+          )
+          .shadow(color: canSend ? .accentColor.opacity(0.2) : .clear, radius: 8, y: 4)
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSend)
+        .accessibilityLabel(isSending ? "Sending" : "Send")
       }
-      .buttonStyle(.plain)
-      .disabled(!canSend)
-      .accessibilityLabel(isSending ? "Sending" : "Send")
+      .padding(.horizontal, 16)
+      .padding(.top, 12)
+      .padding(.bottom, 8)
+      .background(Color(uiColor: .systemGroupedBackground))
     }
-    .padding(.horizontal, 16)
-    .padding(.top, 12)
-    .padding(.bottom, 8)
     .background(.regularMaterial)
   }
 }
