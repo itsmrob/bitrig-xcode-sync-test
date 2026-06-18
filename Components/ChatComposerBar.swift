@@ -21,10 +21,10 @@ struct ChatComposerBar: View {
           TextEditor(text: $text)
             .font(.body)
             .focused(isFocused)
-            .frame(minHeight: 24, maxHeight: 96)
+            .frame(minHeight: 22, maxHeight: 72)
             .padding(.leading, 14)
             .padding(.trailing, 62)
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
             .scrollContentBackground(.hidden)
             .background(.clear)
 
@@ -35,6 +35,7 @@ struct ChatComposerBar: View {
               .frame(maxWidth: .infinity, alignment: .leading)
               .padding(.leading, 20)
               .padding(.trailing, 64)
+              .padding(.vertical, 10)
               .allowsHitTesting(false)
           }
 
@@ -63,8 +64,8 @@ struct ChatComposerBar: View {
         }
       }
       .padding(.horizontal, 16)
-      .padding(.top, 10)
-      .padding(.bottom, 10)
+      .padding(.top, 8)
+      .padding(.bottom, 8)
     }
     .background(.ultraThinMaterial)
   }
