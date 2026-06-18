@@ -4,63 +4,59 @@ struct ChatMessageBubble: View {
   let message: ChatMessage
 
   var body: some View {
-    HStack(alignment: .bottom, spacing: 10) {
-      if message.role == .assistant {
-        roleBadge
+    VStack(alignment: rowAlignment, spacing: 4) {
+      HStack {
+        if message.role == .user {
+          Spacer(minLength: 64)
+        }
+
+        bubbleContent
+
+        if message.role == .assistant {
+          Spacer(minLength: 64)
+        }
       }
 
-      if message.role == .user {
-        Spacer(minLength: 56)
-      }
-
-      VStack(alignment: bubbleAlignment, spacing: 8) {
-        Text(roleTitle)
-          .font(.caption.weight(.semibold))
-          .foregroundStyle(.secondary)
-
-        if message.state == .loading {
-          HStack(spacing: 10) {
-            ProgressView()
-              .controlSize(.small)
-
-            Text("Thinking…")
-              .font(.subheadline)
-          }
-          .foregroundStyle(.secondary)
-          .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-          Text(message.text)
-            .font(.body)
-            .foregroundStyle(textColor)
-            .textSelection(.enabled)
-            .frame(maxWidth: .infinity, alignment: textAlignment)
+      HStack {
+        if message.role == .user {
+          Spacer()
         }
 
         Text(message.createdAt, format: DateFormatters.aiPlaygroundTimestamp)
           .font(.caption2)
-          .foregroundStyle(.secondary)
-      }
-      .frame(maxWidth: 284, alignment: bubbleFrameAlignment)
-      .padding(.horizontal, 14)
-      .padding(.vertical, 12)
-      .background(bubbleBackground, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-      .overlay {
-        RoundedRectangle(cornerRadius: 20, style: .continuous)
-          .stroke(borderColor, lineWidth: 1)
-      }
-      .shadow(color: shadowColor, radius: 10, y: 4)
+          .foregroundStyle(.tertiary)
 
-      if message.role == .user {
-        roleBadge
-      } else {
-        Spacer(minLength: 56)
+        if message.role == .assistant {
+          Spacer()
+        }
       }
     }
     .frame(maxWidth: .infinity)
   }
 
-  private var bubbleAlignment: HorizontalAlignment {
-    message.role == .user ? .trailing : .leading
+  @ViewBuilder
+  private var bubbleContent: some View {
+    Group {
+      if message.state == .loading {
+        ChatTypingIndicator()
+          .frame(maxWidth: .infinity, alignment: .leading)
+      } else {
+        Text(message.text)
+          .font(.body)
+          .foregroundStyle(textColor)
+          .textSelection(.enabled)
+          .frame(maxWidth: .infinity, alignment: textAlignment)
+      }
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 13)
+    .frame(maxWidth: 290, alignment: bubbleFrameAlignment)
+    .background(bubbleBackground, in: RoundedRectangle(cornerRadius: bubbleCornerRadius, style: .continuous))
+    .overlay {
+      RoundedRectangle(cornerRadius: bubbleCornerRadius, style: .continuous)
+        .stroke(borderColor, lineWidth: 0.8)
+    }
+    .shadow(color: shadowColor, radius: 12, y: 6)
   }
 
   private var textAlignment: Alignment {
@@ -71,13 +67,12 @@ struct ChatMessageBubble: View {
     message.role == .user ? .trailing : .leading
   }
 
-  private var roleTitle: String {
-    switch message.role {
-    case .user:
-      return "You"
-    case .assistant:
-      return message.state == .error ? "AI Error" : "AI"
-    }
+  private var rowAlignment: HorizontalAlignment {
+    message.role == .user ? .trailing : .leading
+  }
+
+  private var bubbleCornerRadius: CGFloat {
+    22
   }
 
   private var bubbleBackground: Color {
@@ -85,7 +80,11 @@ struct ChatMessageBubble: View {
     case .user:
       return .accentColor
     case .assistant:
-      return Color(uiColor: .secondarySystemGroupedBackground)
+      if message.state == .error {
+        return Color.red.opacity(0.08)
+      }
+
+      return Color(uiColor: .secondarySystemBackground)
     }
   }
 
@@ -99,34 +98,17 @@ struct ChatMessageBubble: View {
 
   private var borderColor: Color {
     if message.state == .error {
-      return .red.opacity(0.3)
+      return .red.opacity(0.18)
     }
 
     return message.role == .user
-      ? .accentColor.opacity(0.2)
-      : Color(uiColor: .separator).opacity(0.16)
+      ? .accentColor.opacity(0.1)
+      : Color(uiColor: .separator).opacity(0.08)
   }
 
   private var shadowColor: Color {
     message.role == .user
-      ? .accentColor.opacity(0.16)
-      : .black.opacity(0.06)
-  }
-
-  private var roleBadge: some View {
-    Image(systemName: message.role == .user ? "person.fill" : "sparkles")
-      .font(.caption.weight(.bold))
-      .foregroundStyle(message.role == .user ? .white : .accentColor)
-      .frame(width: 28, height: 28)
-      .background(badgeBackground, in: Circle())
-  }
-
-  private var badgeBackground: Color {
-    switch message.role {
-    case .user:
-      return .accentColor
-    case .assistant:
-      return Color(uiColor: .secondarySystemGroupedBackground)
-    }
+      ? .accentColor.opacity(0.18)
+      : .black.opacity(0.05)
   }
 }

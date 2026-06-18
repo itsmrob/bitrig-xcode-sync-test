@@ -2,67 +2,70 @@ import SwiftUI
 
 struct ChatComposerBar: View {
   @Binding var text: String
+  let isFocused: FocusState<Bool>.Binding
   let isSending: Bool
   let canSend: Bool
   let onSend: () -> Void
 
   var body: some View {
     VStack(spacing: 0) {
-      Divider()
-        .opacity(0.5)
+      HStack {
+        ZStack(alignment: .trailing) {
+          RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .fill(Color(uiColor: .secondarySystemBackground))
+            .shadow(color: .black.opacity(0.06), radius: 14, y: 6)
 
-      HStack(alignment: .bottom, spacing: 12) {
-        ZStack(alignment: .topLeading) {
-          RoundedRectangle(cornerRadius: 22, style: .continuous)
-            .fill(Color(uiColor: .secondarySystemGroupedBackground))
-
-          RoundedRectangle(cornerRadius: 22, style: .continuous)
-            .stroke(Color(uiColor: .separator).opacity(0.18), lineWidth: 1)
+          RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .stroke(Color(uiColor: .separator).opacity(0.08), lineWidth: 1)
 
           TextEditor(text: $text)
             .font(.body)
-            .frame(minHeight: 46, maxHeight: 108)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .focused(isFocused)
+            .frame(minHeight: 24, maxHeight: 96)
+            .padding(.leading, 14)
+            .padding(.trailing, 62)
+            .padding(.vertical, 12)
             .scrollContentBackground(.hidden)
             .background(.clear)
 
           if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Text("Ask anything...")
+              .font(.body)
               .foregroundStyle(.tertiary)
-              .padding(.horizontal, 16)
-              .padding(.vertical, 20)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .padding(.leading, 20)
+              .padding(.trailing, 64)
               .allowsHitTesting(false)
           }
-        }
 
-        Button(action: onSend) {
-          Group {
-            if isSending {
-              ProgressView()
-                .tint(.white)
-            } else {
-              Image(systemName: "arrow.up")
-                .font(.headline.weight(.semibold))
+          Button(action: onSend) {
+            Group {
+              if isSending {
+                ProgressView()
+                  .tint(.white)
+              } else {
+                Image(systemName: "arrow.up")
+                  .font(.headline.weight(.semibold))
+              }
             }
+            .frame(width: 40, height: 40)
+            .foregroundStyle(.white)
+            .background(
+              Circle()
+                .fill(canSend ? Color.accentColor : Color(uiColor: .systemGray3))
+            )
+            .shadow(color: canSend ? .accentColor.opacity(0.25) : .clear, radius: 10, y: 4)
           }
-          .frame(width: 48, height: 48)
-          .foregroundStyle(.white)
-          .background(
-            Circle()
-              .fill(canSend ? Color.accentColor : Color(uiColor: .systemGray3))
-          )
-          .shadow(color: canSend ? .accentColor.opacity(0.2) : .clear, radius: 8, y: 4)
+          .buttonStyle(.plain)
+          .disabled(!canSend)
+          .accessibilityLabel(isSending ? "Sending" : "Send")
+          .padding(.trailing, 8)
         }
-        .buttonStyle(.plain)
-        .disabled(!canSend)
-        .accessibilityLabel(isSending ? "Sending" : "Send")
       }
       .padding(.horizontal, 16)
-      .padding(.top, 12)
-      .padding(.bottom, 8)
-      .background(Color(uiColor: .systemGroupedBackground))
+      .padding(.top, 10)
+      .padding(.bottom, 10)
     }
-    .background(.regularMaterial)
+    .background(.ultraThinMaterial)
   }
 }
