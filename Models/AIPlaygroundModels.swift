@@ -5,6 +5,7 @@ struct AIPlaygroundHistoryEntry: Identifiable, Equatable {
   var prompt: String
   var response: String
   var createdAt: Date
+  var isError: Bool
 
   var responsePreview: String {
     let collapsedResponse = response
