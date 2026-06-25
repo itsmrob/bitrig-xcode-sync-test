@@ -6,7 +6,7 @@ struct AIService {
 
   init(
     session: URLSession = .shared,
-    endpoint: URL = URL(string: "http://192.168.0.102:3000/api/generate")!
+    endpoint: URL = URL(string: "http://192.168.0.103:3000/api/generate")!
   ) {
     self.session = session
     self.endpoint = endpoint
