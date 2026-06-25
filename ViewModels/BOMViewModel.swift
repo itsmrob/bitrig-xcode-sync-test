@@ -9,6 +9,10 @@ final class BOMViewModel: ObservableObject {
 
   let categories = Category.all
 
+  var hasItems: Bool {
+    !items.isEmpty
+  }
+
   func itemCount(for category: Category, groupType: GroupType) -> Int {
     items
       .filter { $0.categoryId == category.id && $0.groupType == groupType }
@@ -255,8 +259,39 @@ final class BOMViewModel: ObservableObject {
     "\(selectedCurrentItemIds.count) Current · \(selectedOptionItemIds.count) Options selected"
   }
 
+  func replaceItems(with autofill: BOMAutofillResponse) {
+    clearSelections()
+    items = generatedItems(from: autofill)
+  }
+
   private func category(for id: String) -> Category? {
     categories.first { $0.id == id }
+  }
+
+  private func generatedItems(from autofill: BOMAutofillResponse) -> [BOMItem] {
+    var generatedItems: [BOMItem] = []
+
+    for groupType in GroupType.allCases {
+      for categoryID in BOMCategoryID.allCases {
+        let sourceItems = groupType == .current
+          ? autofill.current.items(for: categoryID)
+          : autofill.options.items(for: categoryID)
+
+        for title in sanitizedTitles(from: sourceItems) {
+          generatedItems.append(
+            BOMItem(
+              id: UUID(),
+              title: title,
+              groupType: groupType,
+              categoryId: categoryID.rawValue,
+              createdAt: Date()
+            )
+          )
+        }
+      }
+    }
+
+    return generatedItems
   }
 
   private func snapshot(for item: BOMItem) -> BOMItemSnapshot {
@@ -295,6 +330,20 @@ final class BOMViewModel: ObservableObject {
 
   private func normalizedTitle(_ title: String) -> String {
     title.trimmingCharacters(in: .whitespacesAndNewlines)
+  }
+
+  private func sanitizedTitles(from titles: [String]) -> [String] {
+    var seen = Set<String>()
+
+    return titles.compactMap { rawTitle in
+      let trimmedTitle = normalizedTitle(rawTitle)
+      guard !trimmedTitle.isEmpty else { return nil }
+
+      let lookupKey = trimmedTitle.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+      guard seen.insert(lookupKey).inserted else { return nil }
+
+      return trimmedTitle
+    }
   }
 
   private func joinedPhrase(for names: [String]) -> String {
