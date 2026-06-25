@@ -2,26 +2,52 @@ import Foundation
 
 struct AIService {
   private let session: URLSession
-  private let endpoint: URL
+  private let generateEndpoint: URL
+  private let bomAutofillEndpoint: URL
 
   init(
     session: URLSession = .shared,
-    endpoint: URL = URL(string: "http://192.168.0.102:3000/api/generate")!
+    generateEndpoint: URL = URL(string: "http://192.168.0.103:3000/api/generate")!,
+    bomAutofillEndpoint: URL = URL(string: "http://192.168.0.103:3000/api/bom-autofill")!
   ) {
     self.session = session
-    self.endpoint = endpoint
+    self.generateEndpoint = generateEndpoint
+    self.bomAutofillEndpoint = bomAutofillEndpoint
   }
 
   func generateResponse(for prompt: String) async throws -> String {
+    let decodedResponse: GenerateResponse = try await performJSONRequest(
+      to: generateEndpoint,
+      body: GenerateRequest(prompt: prompt)
+    )
+
+    let trimmedResult = decodedResponse.result.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    guard !trimmedResult.isEmpty else {
+      throw AIServiceError.emptyResult
+    }
+
+    return trimmedResult
+  }
+
+  func generateBOMAutofill(prompt: String) async throws -> BOMAutofillResponse {
+    // This endpoint turns one business description into all category items for both Current and Options.
+    try await performJSONRequest(
+      to: bomAutofillEndpoint,
+      body: BOMAutofillRequest(prompt: prompt)
+    )
+  }
+
+  private func performJSONRequest<Response: Decodable, Request: Encodable>(
+    to endpoint: URL,
+    body: Request
+  ) async throws -> Response {
     var request = URLRequest(url: endpoint)
     request.httpMethod = "POST"
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     request.setValue("application/json", forHTTPHeaderField: "Accept")
+    request.httpBody = try JSONEncoder().encode(body)
 
-    // Encode the user's prompt into the backend contract expected by the API.
-    request.httpBody = try JSONEncoder().encode(GenerateRequest(prompt: prompt))
-
-    // Send the request asynchronously and wait for the server response.
     let (data, response) = try await session.data(for: request)
 
     guard let httpResponse = response as? HTTPURLResponse else {
@@ -33,16 +59,7 @@ struct AIService {
     }
 
     do {
-      let decodedResponse = try JSONDecoder().decode(GenerateResponse.self, from: data)
-      let trimmedResult = decodedResponse.result.trimmingCharacters(in: .whitespacesAndNewlines)
-
-      guard !trimmedResult.isEmpty else {
-        throw AIServiceError.emptyResult
-      }
-
-      return trimmedResult
-    } catch let error as AIServiceError {
-      throw error
+      return try JSONDecoder().decode(Response.self, from: data)
     } catch {
       throw AIServiceError.decodingFailed
     }

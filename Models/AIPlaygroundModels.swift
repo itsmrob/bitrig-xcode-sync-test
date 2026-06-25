@@ -1,22 +1,20 @@
 import Foundation
 
-struct AIPlaygroundHistoryEntry: Identifiable, Equatable {
+enum ChatMessageRole: String, Equatable {
+  case user
+  case assistant
+}
+
+enum ChatMessageState: Equatable {
+  case sent
+  case loading
+  case error
+}
+
+struct ChatMessage: Identifiable, Equatable {
   let id: UUID
-  var prompt: String
-  var response: String
+  var role: ChatMessageRole
+  var text: String
   var createdAt: Date
-  var isError: Bool
-
-  var responsePreview: String {
-    let collapsedResponse = response
-      .components(separatedBy: .whitespacesAndNewlines)
-      .filter { !$0.isEmpty }
-      .joined(separator: " ")
-
-    guard collapsedResponse.count > 120 else {
-      return collapsedResponse
-    }
-
-    return "\(collapsedResponse.prefix(117))…"
-  }
+  var state: ChatMessageState
 }

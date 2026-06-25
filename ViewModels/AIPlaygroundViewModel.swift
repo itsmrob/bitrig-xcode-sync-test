@@ -5,8 +5,7 @@ import Observation
 @Observable
 final class AIPlaygroundViewModel {
   var prompt = ""
-  var latestEntry: AIPlaygroundHistoryEntry?
-  var history: [AIPlaygroundHistoryEntry] = []
+  var messages: [ChatMessage] = []
   var isGenerating = false
   var errorMessage: String?
 
@@ -16,47 +15,58 @@ final class AIPlaygroundViewModel {
     self.service = service
   }
 
-  var canGenerate: Bool {
+  var canSend: Bool {
     !trimmedPrompt.isEmpty && !isGenerating
   }
 
-  func generate() {
+  func sendPrompt() {
     let submittedPrompt = trimmedPrompt
     guard !submittedPrompt.isEmpty, !isGenerating else { return }
 
     isGenerating = true
     errorMessage = nil
+    prompt = ""
+
+    messages.append(
+      ChatMessage(
+        id: UUID(),
+        role: .user,
+        text: submittedPrompt,
+        createdAt: Date(),
+        state: .sent
+      )
+    )
+
+    let loadingMessageID = UUID()
+    messages.append(
+      ChatMessage(
+        id: loadingMessageID,
+        role: .assistant,
+        text: "",
+        createdAt: Date(),
+        state: .loading
+      )
+    )
 
     Task {
       defer { isGenerating = false }
 
       do {
-        // The view model coordinates the request lifecycle so the view only binds to state.
+        // The view model owns the full request lifecycle so the view only reacts to state changes.
         let response = try await service.generateResponse(for: submittedPrompt)
-        let entry = AIPlaygroundHistoryEntry(
-          id: UUID(),
-          prompt: submittedPrompt,
-          response: response,
-          createdAt: Date(),
-          isError: false
+        updateAssistantMessage(
+          id: loadingMessageID,
+          text: response,
+          state: .sent
         )
-
-        latestEntry = entry
-        history.insert(entry, at: 0)
       } catch {
         let message = formattedErrorMessage(from: error)
         errorMessage = message
-
-        let entry = AIPlaygroundHistoryEntry(
-          id: UUID(),
-          prompt: submittedPrompt,
-          response: message,
-          createdAt: Date(),
-          isError: true
+        updateAssistantMessage(
+          id: loadingMessageID,
+          text: message,
+          state: .error
         )
-
-        latestEntry = entry
-        history.insert(entry, at: 0)
       }
     }
   }
@@ -86,5 +96,16 @@ final class AIPlaygroundViewModel {
     }
 
     return error.localizedDescription
+  }
+
+  private func updateAssistantMessage(
+    id: UUID,
+    text: String,
+    state: ChatMessageState
+  ) {
+    guard let index = messages.firstIndex(where: { $0.id == id }) else { return }
+
+    messages[index].text = text
+    messages[index].state = state
   }
 }
