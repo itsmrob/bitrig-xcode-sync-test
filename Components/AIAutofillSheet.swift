@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct AIAutofillSheet: View {
   @ObservedObject var viewModel: BOMAutofillViewModel
@@ -70,8 +71,18 @@ struct AIAutofillSheet: View {
 
   private var promptCard: some View {
     VStack(alignment: .leading, spacing: 10) {
-      Text("Business Prompt")
-        .font(.subheadline.weight(.medium))
+      HStack {
+        Text("Business Prompt")
+          .font(.subheadline.weight(.medium))
+
+        Spacer()
+
+        Button("Paste") {
+          pasteFromClipboard()
+        }
+        .font(.footnote.weight(.semibold))
+        .disabled(!canPasteFromClipboard || viewModel.isGenerating)
+      }
 
       ZStack(alignment: .topLeading) {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -132,5 +143,26 @@ struct AIAutofillSheet: View {
         .font(.footnote)
         .foregroundStyle(.secondary)
     }
+  }
+
+  private var canPasteFromClipboard: Bool {
+    guard let clipboardText = UIPasteboard.general.string else { return false }
+    return !clipboardText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+  }
+
+  private func pasteFromClipboard() {
+    guard let clipboardText = UIPasteboard.general.string?
+      .trimmingCharacters(in: .whitespacesAndNewlines),
+      !clipboardText.isEmpty else {
+      return
+    }
+
+    if viewModel.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      viewModel.prompt = clipboardText
+    } else {
+      viewModel.prompt += "\n\(clipboardText)"
+    }
+
+    isPromptFocused = true
   }
 }
