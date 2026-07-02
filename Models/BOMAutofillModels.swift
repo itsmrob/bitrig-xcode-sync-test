@@ -9,7 +9,7 @@ struct BOMAutofillResponse: Decodable {
   var options: BOMCategoryItems
 }
 
-struct BOMCategoryItems: Decodable {
+struct BOMCategoryItems: Codable {
   var production: [String]
   var offering: [String]
   var delivery: [String]

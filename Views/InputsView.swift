@@ -7,6 +7,7 @@ struct InputsView: View {
   @State private var isShowingAutofillSheet = false
   @State private var isShowingReplaceConfirmation = false
   @State private var isShowingSuccessToast = false
+  @State private var isShowingSaveSuccessBanner = false
 
   var body: some View {
     NavigationStack {
@@ -15,6 +16,21 @@ struct InputsView: View {
           .ignoresSafeArea()
 
         VStack(alignment: .leading, spacing: 14) {
+          if viewModel.hasUnsavedChanges {
+            BOMSaveBar(
+              isSaving: viewModel.isSaving,
+              errorMessage: viewModel.saveErrorMessage,
+              onSave: {
+                Task {
+                  await saveProject()
+                }
+              }
+            )
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .transition(.opacity.combined(with: .move(edge: .top)))
+          }
+
           VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 12) {
               VStack(alignment: .leading, spacing: 4) {
@@ -56,7 +72,7 @@ struct InputsView: View {
             .pickerStyle(.segmented)
           }
           .padding(.horizontal)
-          .padding(.top, 8)
+          .padding(.top, viewModel.hasUnsavedChanges ? 0 : 8)
 
           List {
             Section {
@@ -101,20 +117,22 @@ struct InputsView: View {
         Text("This will replace existing Current and Options items. Continue?")
       }
       .overlay(alignment: .top) {
-        if isShowingSuccessToast {
-          Text("AI generated data inputs successfully.")
-            .font(.subheadline.weight(.medium))
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
-            .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
-            .padding(.top, 10)
-            .transition(.move(edge: .top).combined(with: .opacity))
+        VStack(spacing: 10) {
+          if isShowingSuccessToast {
+            statusBanner("AI generated data inputs successfully.")
+          }
+
+          if isShowingSaveSuccessBanner {
+            statusBanner("✓ Changes saved")
+          }
         }
       }
     }
     .listStyle(.insetGrouped)
     .contentMargins(.top, 0, for: .scrollContent)
+    .task {
+      await viewModel.loadProjectIfNeeded()
+    }
   }
 
   private func requestAutofillGeneration() {
@@ -145,5 +163,31 @@ struct InputsView: View {
         isShowingSuccessToast = false
       }
     }
+  }
+
+  private func saveProject() async {
+    let wasSuccessful = await viewModel.saveProject()
+    guard wasSuccessful else { return }
+
+    withAnimation(.snappy) {
+      isShowingSaveSuccessBanner = true
+    }
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+      withAnimation(.snappy) {
+        isShowingSaveSuccessBanner = false
+      }
+    }
+  }
+
+  private func statusBanner(_ title: String) -> some View {
+    Text(title)
+      .font(.subheadline.weight(.medium))
+      .padding(.horizontal, 16)
+      .padding(.vertical, 12)
+      .background(Color(uiColor: .secondarySystemBackground), in: Capsule())
+      .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
+      .padding(.top, 10)
+      .transition(.move(edge: .top).combined(with: .opacity))
   }
 }

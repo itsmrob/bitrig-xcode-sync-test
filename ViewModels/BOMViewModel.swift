@@ -1,13 +1,25 @@
 import Combine
 import Foundation
 
+@MainActor
 final class BOMViewModel: ObservableObject {
   @Published var items: [BOMItem] = []
   @Published var pivots: [Pivot] = []
   @Published var selectedCurrentItemIds: Set<UUID> = []
   @Published var selectedOptionItemIds: Set<UUID> = []
+  @Published var hasUnsavedChanges = false
+  @Published var isSaving = false
+  @Published var saveErrorMessage: String?
 
   let categories = Category.all
+
+  private let persistenceService: BOMPersistenceService
+  private var hasLoadedProject = false
+  private var changeRevision = 0
+
+  init(persistenceService: BOMPersistenceService = BOMPersistenceService()) {
+    self.persistenceService = persistenceService
+  }
 
   var hasItems: Bool {
     !items.isEmpty
@@ -88,6 +100,8 @@ final class BOMViewModel: ObservableObject {
         createdAt: Date()
       )
     )
+
+    registerMutation()
   }
 
   func updateItem(
@@ -117,12 +131,14 @@ final class BOMViewModel: ObservableObject {
 
     selectedCurrentItemIds.remove(id)
     selectedOptionItemIds.remove(id)
+    registerMutation()
   }
 
   func deleteItem(id: UUID) {
     items.removeAll { $0.id == id }
     selectedCurrentItemIds.remove(id)
     selectedOptionItemIds.remove(id)
+    registerMutation()
   }
 
   func toggleSelection(for item: BOMItem) {
@@ -262,20 +278,84 @@ final class BOMViewModel: ObservableObject {
   func replaceItems(with autofill: BOMAutofillResponse) {
     clearSelections()
     items = generatedItems(from: autofill)
+    registerMutation()
+  }
+
+  func loadProjectIfNeeded() async {
+    guard !hasLoadedProject else { return }
+    hasLoadedProject = true
+
+    do {
+      if let document = try await persistenceService.loadBOM() {
+        applyLoadedDocument(document)
+      } else {
+        markClean()
+      }
+    } catch {
+      markClean()
+    }
+  }
+
+  func saveProject() async -> Bool {
+    guard !isSaving else { return false }
+
+    isSaving = true
+    saveErrorMessage = nil
+    let revisionAtSaveStart = changeRevision
+    let document = makeDocument()
+
+    defer {
+      isSaving = false
+    }
+
+    do {
+      // Persist the full BOM document so the server always has a complete snapshot.
+      try await persistenceService.saveBOM(document)
+
+      if changeRevision == revisionAtSaveStart {
+        markClean()
+      } else {
+        saveErrorMessage = nil
+      }
+
+      return true
+    } catch {
+      saveErrorMessage = "Could not save changes."
+      return false
+    }
   }
 
   private func category(for id: String) -> Category? {
     categories.first { $0.id == id }
   }
 
+  private func applyLoadedDocument(_ document: BOMDocument) {
+    clearSelections()
+    items = generatedItems(from: document)
+    markClean()
+  }
+
   private func generatedItems(from autofill: BOMAutofillResponse) -> [BOMItem] {
+    generatedItems(current: autofill.current, options: autofill.options)
+  }
+
+  private func generatedItems(from document: BOMDocument) -> [BOMItem] {
+    generatedItems(current: document.current, options: document.options)
+  }
+
+  private func generatedItems(
+    current: BOMCategoryItems,
+    options: BOMCategoryItems
+  ) -> [BOMItem] {
     var generatedItems: [BOMItem] = []
+    let baseDate = Date()
+    var offset = 0
 
     for groupType in GroupType.allCases {
       for categoryID in BOMCategoryID.allCases {
         let sourceItems = groupType == .current
-          ? autofill.current.items(for: categoryID)
-          : autofill.options.items(for: categoryID)
+          ? current.items(for: categoryID)
+          : options.items(for: categoryID)
 
         for title in sanitizedTitles(from: sourceItems) {
           generatedItems.append(
@@ -284,14 +364,38 @@ final class BOMViewModel: ObservableObject {
               title: title,
               groupType: groupType,
               categoryId: categoryID.rawValue,
-              createdAt: Date()
+              createdAt: baseDate.addingTimeInterval(TimeInterval(offset))
             )
           )
+          offset += 1
         }
       }
     }
 
     return generatedItems
+  }
+
+  private func makeDocument() -> BOMDocument {
+    BOMDocument(
+      current: makeCategoryItems(for: .current),
+      options: makeCategoryItems(for: .options)
+    )
+  }
+
+  private func makeCategoryItems(for groupType: GroupType) -> BOMCategoryItems {
+    BOMCategoryItems(
+      production: titles(for: .production, groupType: groupType),
+      offering: titles(for: .offering, groupType: groupType),
+      delivery: titles(for: .delivery, groupType: groupType),
+      market: titles(for: .market, groupType: groupType),
+      businessModel: titles(for: .businessModel, groupType: groupType)
+    )
+  }
+
+  private func titles(for categoryID: BOMCategoryID, groupType: GroupType) -> [String] {
+    let category = categories.first { $0.key == categoryID }
+    guard let category else { return [] }
+    return items(for: category, groupType: groupType).map(\.title)
   }
 
   private func snapshot(for item: BOMItem) -> BOMItemSnapshot {
@@ -357,5 +461,16 @@ final class BOMViewModel: ObservableObject {
     default:
       return "\(names[0]), \(names[1]), and \(names[2])"
     }
+  }
+
+  private func registerMutation() {
+    changeRevision += 1
+    hasUnsavedChanges = true
+    saveErrorMessage = nil
+  }
+
+  private func markClean() {
+    hasUnsavedChanges = false
+    saveErrorMessage = nil
   }
 }
