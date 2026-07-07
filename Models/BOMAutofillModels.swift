@@ -16,6 +16,14 @@ struct BOMCategoryItems: Codable {
   var market: [String]
   var businessModel: [String]
 
+  var isEmpty: Bool {
+    production.isEmpty &&
+    offering.isEmpty &&
+    delivery.isEmpty &&
+    market.isEmpty &&
+    businessModel.isEmpty
+  }
+
   func items(for categoryID: BOMCategoryID) -> [String] {
     switch categoryID {
     case .production:

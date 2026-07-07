@@ -28,7 +28,7 @@ struct BOMPersistenceService {
     }
 
     guard 200 ..< 300 ~= httpResponse.statusCode else {
-      throw BOMPersistenceError.requestFailed(statusCode: httpResponse.statusCode)
+      throw try parseRequestFailure(from: data, statusCode: httpResponse.statusCode)
     }
 
     do {
@@ -50,21 +50,51 @@ struct BOMPersistenceService {
       throw BOMPersistenceError.encodingFailed
     }
 
-    let (_, response) = try await session.data(for: request)
+    let (data, response) = try await session.data(for: request)
 
     guard let httpResponse = response as? HTTPURLResponse else {
       throw BOMPersistenceError.invalidResponse
     }
 
     guard 200 ..< 300 ~= httpResponse.statusCode else {
-      throw BOMPersistenceError.requestFailed(statusCode: httpResponse.statusCode)
+      throw try parseRequestFailure(from: data, statusCode: httpResponse.statusCode)
     }
+  }
+
+  func deleteBOM() async throws {
+    var request = URLRequest(url: endpoint)
+    request.httpMethod = "DELETE"
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+    let (data, response) = try await session.data(for: request)
+
+    guard let httpResponse = response as? HTTPURLResponse else {
+      throw BOMPersistenceError.invalidResponse
+    }
+
+    if httpResponse.statusCode == 404 {
+      return
+    }
+
+    guard 200 ..< 300 ~= httpResponse.statusCode else {
+      throw try parseRequestFailure(from: data, statusCode: httpResponse.statusCode)
+    }
+  }
+
+  private func parseRequestFailure(from data: Data, statusCode: Int) throws -> BOMPersistenceError {
+    if let serverMessage = try? JSONDecoder().decode(ServerErrorResponse.self, from: data),
+       !serverMessage.error.isEmpty {
+      return .serverError(message: serverMessage.error, statusCode: statusCode)
+    }
+
+    return .requestFailed(statusCode: statusCode)
   }
 }
 
 enum BOMPersistenceError: LocalizedError {
   case invalidResponse
   case requestFailed(statusCode: Int)
+  case serverError(message: String, statusCode: Int)
   case decodingFailed
   case encodingFailed
 
@@ -74,10 +104,16 @@ enum BOMPersistenceError: LocalizedError {
       return "The server returned an invalid response."
     case .requestFailed(let statusCode):
       return "The request failed with status code \(statusCode)."
+    case .serverError(let message, _):
+      return message
     case .decodingFailed:
       return "The app could not read the saved project."
     case .encodingFailed:
       return "The app could not prepare the project for saving."
     }
   }
+}
+
+private struct ServerErrorResponse: Decodable {
+  var error: String
 }

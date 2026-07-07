@@ -16,6 +16,8 @@ final class BOMViewModel: ObservableObject {
   private let persistenceService: BOMPersistenceService
   private var hasLoadedProject = false
   private var changeRevision = 0
+  private var projectName = "BOM Lite Mobile"
+  private var lastAIRequest = ""
 
   init(persistenceService: BOMPersistenceService = BOMPersistenceService()) {
     self.persistenceService = persistenceService
@@ -275,9 +277,12 @@ final class BOMViewModel: ObservableObject {
     "\(selectedCurrentItemIds.count) Current · \(selectedOptionItemIds.count) Options selected"
   }
 
-  func replaceItems(with autofill: BOMAutofillResponse) {
+  func replaceItems(with autofill: BOMAutofillResponse, lastAIRequest: String? = nil) {
     clearSelections()
     items = generatedItems(from: autofill)
+    if let lastAIRequest {
+      self.lastAIRequest = lastAIRequest
+    }
     registerMutation()
   }
 
@@ -289,10 +294,10 @@ final class BOMViewModel: ObservableObject {
       if let document = try await persistenceService.loadBOM() {
         applyLoadedDocument(document)
       } else {
-        markClean()
+        applyEmptyProjectDefaults()
       }
     } catch {
-      markClean()
+      applyEmptyProjectDefaults()
     }
   }
 
@@ -310,7 +315,11 @@ final class BOMViewModel: ObservableObject {
 
     do {
       // Persist the full BOM document so the server always has a complete snapshot.
-      try await persistenceService.saveBOM(document)
+      if document.isEmpty {
+        try await persistenceService.deleteBOM()
+      } else {
+        try await persistenceService.saveBOM(document)
+      }
 
       if changeRevision == revisionAtSaveStart {
         markClean()
@@ -320,7 +329,7 @@ final class BOMViewModel: ObservableObject {
 
       return true
     } catch {
-      saveErrorMessage = "Could not save changes."
+      saveErrorMessage = formattedSaveErrorMessage(from: error)
       return false
     }
   }
@@ -331,7 +340,15 @@ final class BOMViewModel: ObservableObject {
 
   private func applyLoadedDocument(_ document: BOMDocument) {
     clearSelections()
+    projectName = document.projectName
+    lastAIRequest = document.lastAIRequest
     items = generatedItems(from: document)
+    markClean()
+  }
+
+  private func applyEmptyProjectDefaults() {
+    projectName = "BOM Lite Mobile"
+    lastAIRequest = ""
     markClean()
   }
 
@@ -377,6 +394,8 @@ final class BOMViewModel: ObservableObject {
 
   private func makeDocument() -> BOMDocument {
     BOMDocument(
+      projectName: normalizedTitle(projectName).isEmpty ? "BOM Lite Mobile" : normalizedTitle(projectName),
+      lastAIRequest: lastAIRequest,
       current: makeCategoryItems(for: .current),
       options: makeCategoryItems(for: .options)
     )
@@ -472,5 +491,26 @@ final class BOMViewModel: ObservableObject {
   private func markClean() {
     hasUnsavedChanges = false
     saveErrorMessage = nil
+  }
+
+  private func formattedSaveErrorMessage(from error: Error) -> String {
+    if let persistenceError = error as? BOMPersistenceError {
+      return persistenceError.errorDescription ?? "Could not save changes."
+    }
+
+    if let urlError = error as? URLError {
+      switch urlError.code {
+      case .cannotConnectToHost:
+        return "Could not connect to the backend server."
+      case .notConnectedToInternet:
+        return "No network connection is available."
+      case .timedOut:
+        return "The save request timed out."
+      default:
+        return urlError.localizedDescription
+      }
+    }
+
+    return "Could not save changes."
   }
 }
