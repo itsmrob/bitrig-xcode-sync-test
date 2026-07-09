@@ -38,7 +38,7 @@ final class BOMAutofillViewModel: ObservableObject {
 
     do {
       let response = try await service.generateBOMAutofill(prompt: submittedPrompt)
-      bomViewModel.replaceItems(with: response)
+      bomViewModel.replaceItems(with: response, lastAIRequest: submittedPrompt)
       prompt = ""
       return true
     } catch {
