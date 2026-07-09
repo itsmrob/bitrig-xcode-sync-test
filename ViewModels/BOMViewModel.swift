@@ -10,17 +10,30 @@ final class BOMViewModel: ObservableObject {
   @Published var hasUnsavedChanges = false
   @Published var isSaving = false
   @Published var saveErrorMessage: String?
+  @Published var hasUnsavedPivotChanges = false
+  @Published var isSavingPivots = false
+  @Published var pivotSaveErrorMessage: String?
 
   let categories = Category.all
 
   private let persistenceService: BOMPersistenceService
+  private let pivotPersistenceService: PivotPersistenceService
   private var hasLoadedProject = false
+  private var hasLoadedPivots = false
   private var changeRevision = 0
+  private var pivotChangeRevision = 0
   private var projectName = "BOM Lite Mobile"
   private var lastAIRequest = ""
+  private var pivotDocumentID = "default"
+  private var pivotProjectID = "default"
+  private var pivotDocumentCreatedAt = BOMViewModel.isoTimestamp(from: Date())
 
-  init(persistenceService: BOMPersistenceService = BOMPersistenceService()) {
+  init(
+    persistenceService: BOMPersistenceService = BOMPersistenceService(),
+    pivotPersistenceService: PivotPersistenceService = PivotPersistenceService()
+  ) {
     self.persistenceService = persistenceService
+    self.pivotPersistenceService = pivotPersistenceService
   }
 
   var hasItems: Bool {
@@ -75,13 +88,11 @@ final class BOMViewModel: ObservableObject {
   }
 
   func filteredPivots(searchText: String) -> [Pivot] {
-    let filtered = pivots.filter { pivot in
+    pivots.filter { pivot in
       searchText.isEmpty ||
       pivot.title.localizedCaseInsensitiveContains(searchText) ||
       previewSummary(for: pivot).localizedCaseInsensitiveContains(searchText)
     }
-
-    return filtered.sorted { $0.createdAt > $1.createdAt }
   }
 
   func addItem(title: String, groupType: GroupType, categoryId: BOMCategoryID) throws {
@@ -195,8 +206,9 @@ final class BOMViewModel: ObservableObject {
       createdAt: Date()
     )
 
-    pivots.insert(pivot, at: 0)
+    pivots.insert(preparedPivotForPersistence(pivot), at: 0)
     clearSelections()
+    registerPivotMutation()
     return pivot
   }
 
@@ -213,10 +225,14 @@ final class BOMViewModel: ObservableObject {
 
     guard let index = pivots.firstIndex(where: { $0.id == id }) else { return }
     pivots[index].title = trimmedTitle
+    pivots[index].updatedAt = Date()
+    pivots[index] = preparedPivotForPersistence(pivots[index])
+    registerPivotMutation()
   }
 
   func deletePivot(id: UUID) {
     pivots.removeAll { $0.id == id }
+    registerPivotMutation()
   }
 
   @discardableResult
@@ -230,6 +246,9 @@ final class BOMViewModel: ObservableObject {
       pivots[index].optionItems.removeAll { $0.id == snapshotID }
     }
 
+    pivots[index].updatedAt = Date()
+    pivots[index] = preparedPivotForPersistence(pivots[index])
+    registerPivotMutation()
     return pivots[index].currentItems.isEmpty && pivots[index].optionItems.isEmpty
   }
 
@@ -334,6 +353,56 @@ final class BOMViewModel: ObservableObject {
     }
   }
 
+  func loadPivotsIfNeeded() async {
+    guard !hasLoadedPivots else { return }
+    hasLoadedPivots = true
+
+    do {
+      let document = try await pivotPersistenceService.fetchPivots()
+      applyLoadedPivotDocument(document)
+    } catch {
+      applyEmptyPivotDefaults()
+    }
+  }
+
+  func savePivots() async -> Bool {
+    guard !isSavingPivots else { return false }
+
+    isSavingPivots = true
+    pivotSaveErrorMessage = nil
+    let revisionAtSaveStart = pivotChangeRevision
+    let document = makePivotDocument()
+
+    defer {
+      isSavingPivots = false
+    }
+
+    do {
+      if document.pivots.isEmpty {
+        try await pivotPersistenceService.deletePivots()
+      } else {
+        let savedDocument = try await pivotPersistenceService.savePivots(document)
+        if pivotChangeRevision == revisionAtSaveStart {
+          applySavedPivotDocument(savedDocument)
+        }
+      }
+
+      if pivotChangeRevision == revisionAtSaveStart {
+        if document.pivots.isEmpty {
+          applyDeletedPivotDocument()
+        }
+        markPivotsClean()
+      } else {
+        pivotSaveErrorMessage = nil
+      }
+
+      return true
+    } catch {
+      pivotSaveErrorMessage = formattedPivotSaveErrorMessage(from: error)
+      return false
+    }
+  }
+
   private func category(for id: String) -> Category? {
     categories.first { $0.id == id }
   }
@@ -350,6 +419,34 @@ final class BOMViewModel: ObservableObject {
     projectName = "BOM Lite Mobile"
     lastAIRequest = ""
     markClean()
+  }
+
+  private func applyLoadedPivotDocument(_ document: PivotDocument) {
+    pivotDocumentID = document.id
+    pivotProjectID = document.projectId
+    pivotDocumentCreatedAt = document.createdAt
+    pivots = document.pivots.map(appPivot(from:))
+    markPivotsClean()
+  }
+
+  private func applySavedPivotDocument(_ document: PivotDocument) {
+    pivotDocumentID = document.id
+    pivotProjectID = document.projectId
+    pivotDocumentCreatedAt = document.createdAt
+    pivots = document.pivots.map(appPivot(from:))
+  }
+
+  private func applyDeletedPivotDocument() {
+    pivotDocumentID = "default"
+    pivotProjectID = "default"
+    pivotDocumentCreatedAt = BOMViewModel.isoTimestamp(from: Date())
+  }
+
+  private func applyEmptyPivotDefaults() {
+    pivotDocumentID = "default"
+    pivotProjectID = "default"
+    pivotDocumentCreatedAt = BOMViewModel.isoTimestamp(from: Date())
+    markPivotsClean()
   }
 
   private func generatedItems(from autofill: BOMAutofillResponse) -> [BOMItem] {
@@ -401,6 +498,16 @@ final class BOMViewModel: ObservableObject {
     )
   }
 
+  private func makePivotDocument() -> PivotDocument {
+    PivotDocument(
+      id: pivotDocumentID,
+      projectId: pivotProjectID,
+      pivots: pivots.map(persistedPivot(from:)),
+      createdAt: pivotDocumentCreatedAt,
+      updatedAt: BOMViewModel.isoTimestamp(from: Date())
+    )
+  }
+
   private func makeCategoryItems(for groupType: GroupType) -> BOMCategoryItems {
     BOMCategoryItems(
       production: titles(for: .production, groupType: groupType),
@@ -427,6 +534,144 @@ final class BOMViewModel: ObservableObject {
       categoryId: item.categoryId,
       categoryName: itemCategory?.name ?? "Category"
     )
+  }
+
+  private func appPivot(from persistedPivot: PersistedPivot) -> Pivot {
+    let currentSnapshots: [BOMItemSnapshot]
+    let optionSnapshots: [BOMItemSnapshot]
+    let restoredNotes: String
+
+    if let envelope = decodedNotesEnvelope(from: persistedPivot.notes) {
+      currentSnapshots = envelope.currentItems.map(snapshot(from:))
+      optionSnapshots = envelope.optionItems.map(snapshot(from:))
+      restoredNotes = envelope.userNotes
+    } else {
+      currentSnapshots = fallbackSnapshots(
+        categoryID: persistedPivot.currentCategory,
+        title: persistedPivot.currentItem,
+        groupType: .current
+      )
+      optionSnapshots = fallbackSnapshots(
+        categoryID: persistedPivot.optionCategory,
+        title: persistedPivot.optionItem,
+        groupType: .options
+      )
+      restoredNotes = persistedPivot.notes
+    }
+
+    return Pivot(
+      id: UUID(uuidString: persistedPivot.id) ?? UUID(),
+      title: persistedPivot.title,
+      currentItems: currentSnapshots,
+      optionItems: optionSnapshots,
+      createdAt: BOMViewModel.date(from: persistedPivot.createdAt) ?? Date(),
+      pivotDescription: persistedPivot.description,
+      currentCategory: persistedPivot.currentCategory,
+      optionCategory: persistedPivot.optionCategory,
+      currentItem: persistedPivot.currentItem,
+      optionItem: persistedPivot.optionItem,
+      impact: persistedPivot.impact,
+      effort: persistedPivot.effort,
+      notes: restoredNotes,
+      updatedAt: BOMViewModel.date(from: persistedPivot.updatedAt) ?? Date()
+    )
+  }
+
+  private func persistedPivot(from pivot: Pivot) -> PersistedPivot {
+    let preparedPivot = preparedPivotForPersistence(pivot)
+    let notesEnvelope = PivotNotesEnvelope(
+      userNotes: preparedPivot.notes,
+      currentItems: preparedPivot.currentItems.map(persistedSnapshot(from:)),
+      optionItems: preparedPivot.optionItems.map(persistedSnapshot(from:))
+    )
+
+    return PersistedPivot(
+      id: preparedPivot.id.uuidString,
+      title: preparedPivot.title,
+      description: preparedPivot.pivotDescription.isEmpty ? detailSummary(for: preparedPivot) : preparedPivot.pivotDescription,
+      currentCategory: preparedPivot.currentCategory,
+      optionCategory: preparedPivot.optionCategory,
+      currentItem: preparedPivot.currentItem,
+      optionItem: preparedPivot.optionItem,
+      impact: preparedPivot.impact,
+      effort: preparedPivot.effort,
+      notes: encodedNotesEnvelope(notesEnvelope),
+      createdAt: BOMViewModel.isoTimestamp(from: preparedPivot.createdAt),
+      updatedAt: BOMViewModel.isoTimestamp(from: preparedPivot.updatedAt)
+    )
+  }
+
+  private func preparedPivotForPersistence(_ pivot: Pivot) -> Pivot {
+    var updatedPivot = pivot
+    updatedPivot.currentCategory = pivot.currentItems.first?.categoryId ?? ""
+    updatedPivot.optionCategory = pivot.optionItems.first?.categoryId ?? ""
+    updatedPivot.currentItem = pivot.currentItems.first?.title ?? ""
+    updatedPivot.optionItem = pivot.optionItems.first?.title ?? ""
+
+    if updatedPivot.pivotDescription.isEmpty {
+      updatedPivot.pivotDescription = detailSummary(for: pivot)
+    }
+
+    return updatedPivot
+  }
+
+  private func persistedSnapshot(from snapshot: BOMItemSnapshot) -> PersistedPivotSnapshot {
+    PersistedPivotSnapshot(
+      id: snapshot.id.uuidString,
+      title: snapshot.title,
+      groupType: snapshot.groupType.rawValue,
+      categoryId: snapshot.categoryId,
+      categoryName: snapshot.categoryName
+    )
+  }
+
+  private func snapshot(from persistedSnapshot: PersistedPivotSnapshot) -> BOMItemSnapshot {
+    BOMItemSnapshot(
+      id: UUID(uuidString: persistedSnapshot.id) ?? UUID(),
+      title: persistedSnapshot.title,
+      groupType: GroupType(rawValue: persistedSnapshot.groupType) ?? .current,
+      categoryId: persistedSnapshot.categoryId,
+      categoryName: persistedSnapshot.categoryName
+    )
+  }
+
+  private func fallbackSnapshots(
+    categoryID: String,
+    title: String,
+    groupType: GroupType
+  ) -> [BOMItemSnapshot] {
+    let trimmedTitle = normalizedTitle(title)
+    let trimmedCategoryID = normalizedTitle(categoryID)
+
+    guard !trimmedTitle.isEmpty, !trimmedCategoryID.isEmpty else { return [] }
+
+    return [
+      BOMItemSnapshot(
+        id: UUID(),
+        title: trimmedTitle,
+        groupType: groupType,
+        categoryId: trimmedCategoryID,
+        categoryName: categoryName(for: trimmedCategoryID)
+      )
+    ]
+  }
+
+  private func categoryName(for categoryID: String) -> String {
+    categories.first { $0.id == categoryID }?.name ?? "Category"
+  }
+
+  private func decodedNotesEnvelope(from notes: String) -> PivotNotesEnvelope? {
+    guard let data = notes.data(using: .utf8) else { return nil }
+    return try? JSONDecoder().decode(PivotNotesEnvelope.self, from: data)
+  }
+
+  private func encodedNotesEnvelope(_ envelope: PivotNotesEnvelope) -> String {
+    guard let data = try? JSONEncoder().encode(envelope),
+          let json = String(data: data, encoding: .utf8) else {
+      return envelope.userNotes
+    }
+
+    return json
   }
 
   private func validateItemName(
@@ -493,6 +738,17 @@ final class BOMViewModel: ObservableObject {
     saveErrorMessage = nil
   }
 
+  private func registerPivotMutation() {
+    pivotChangeRevision += 1
+    hasUnsavedPivotChanges = true
+    pivotSaveErrorMessage = nil
+  }
+
+  private func markPivotsClean() {
+    hasUnsavedPivotChanges = false
+    pivotSaveErrorMessage = nil
+  }
+
   private func formattedSaveErrorMessage(from error: Error) -> String {
     if let persistenceError = error as? BOMPersistenceError {
       return persistenceError.errorDescription ?? "Could not save changes."
@@ -512,5 +768,45 @@ final class BOMViewModel: ObservableObject {
     }
 
     return "Could not save changes."
+  }
+
+  private func formattedPivotSaveErrorMessage(from error: Error) -> String {
+    if let persistenceError = error as? PivotPersistenceError {
+      return persistenceError.errorDescription ?? "Could not save pivots."
+    }
+
+    if let urlError = error as? URLError {
+      switch urlError.code {
+      case .cannotConnectToHost:
+        return "Could not connect to the backend server."
+      case .notConnectedToInternet:
+        return "No network connection is available."
+      case .timedOut:
+        return "The save request timed out."
+      default:
+        return urlError.localizedDescription
+      }
+    }
+
+    return "Could not save pivots."
+  }
+
+  private static func isoTimestamp(from date: Date) -> String {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter.string(from: date)
+  }
+
+  private static func date(from isoTimestamp: String) -> Date? {
+    let formatterWithFractional = ISO8601DateFormatter()
+    formatterWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+    if let parsedDate = formatterWithFractional.date(from: isoTimestamp) {
+      return parsedDate
+    }
+
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter.date(from: isoTimestamp)
   }
 }

@@ -74,6 +74,15 @@ struct Pivot: Identifiable, Equatable {
   var currentItems: [BOMItemSnapshot]
   var optionItems: [BOMItemSnapshot]
   let createdAt: Date
+  var pivotDescription = ""
+  var currentCategory = ""
+  var optionCategory = ""
+  var currentItem = ""
+  var optionItem = ""
+  var impact = ""
+  var effort = ""
+  var notes = ""
+  var updatedAt = Date()
 }
 
 struct CategoryItemGroup: Identifiable {
