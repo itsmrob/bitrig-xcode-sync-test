@@ -7,8 +7,8 @@ struct AIService {
 
   init(
     session: URLSession = .shared,
-    generateEndpoint: URL = URL(string: "http://192.168.0.103:3000/api/generate")!,
-    bomAutofillEndpoint: URL = URL(string: "http://192.168.0.103:3000/api/bom-autofill")!
+    generateEndpoint: URL = URL(string: "http://192.168.0.101:3000/api/generate")!,
+    bomAutofillEndpoint: URL = URL(string: "http://192.168.0.101:3000/api/bom-autofill")!
   ) {
     self.session = session
     self.generateEndpoint = generateEndpoint

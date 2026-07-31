@@ -6,7 +6,7 @@ struct BOMPersistenceService {
 
   init(
     session: URLSession = .shared,
-    endpoint: URL = URL(string: "http://192.168.0.103:3000/api/bom")!
+    endpoint: URL = URL(string: "http://192.168.0.101:3000/api/bom")!
   ) {
     self.session = session
     self.endpoint = endpoint
