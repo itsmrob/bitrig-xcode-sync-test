@@ -6,7 +6,7 @@ struct PivotPersistenceService {
 
   init(
     session: URLSession = .shared,
-    endpoint: URL = URL(string: "http://192.168.0.101:3000/api/pivots")!
+    endpoint: URL = URL(string: "https://web-production-81f39.up.railway.app/api/pivots")!
   ) {
     self.session = session
     self.endpoint = endpoint

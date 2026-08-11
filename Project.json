@@ -21,14 +21,6 @@
           "CFBundleShortVersionString": "1.0",
           "CFBundleVersion": "1",
           "ITSAppUsesNonExemptEncryption": false,
-          "NSAppTransportSecurity": {
-            "NSAllowsLocalNetworking": true,
-            "NSExceptionDomains": {
-              "192.168.0.101": {
-                "NSExceptionAllowsInsecureHTTPLoads": true
-              }
-            }
-          },
           "UILaunchScreen": {},
           "UISupportedInterfaceOrientations": [
             "UIInterfaceOrientationPortrait",
