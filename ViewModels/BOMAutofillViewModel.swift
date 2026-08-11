@@ -2,9 +2,7 @@ import Foundation
 
 @MainActor
 final class BOMAutofillViewModel: ObservableObject {
-  @Published var prompt = """
-  We own a local coffee shop with two locations. Our current operations rely heavily on manual processes, inventory management is inconsistent, and customer wait times are long during peak hours. We want to improve operational efficiency, increase customer satisfaction, expand our product offerings, optimize delivery, reach more customers through digital channels, and create new revenue opportunities.
-  """
+  @Published var prompt = ""
   @Published var isGenerating = false
   @Published var errorMessage: String?
 
